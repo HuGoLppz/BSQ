@@ -17,7 +17,17 @@ Proyecto final de la C Piscine: encontrar y dibujar el **cuadrado más grande** 
 
 ## Explicación completa
 
-En [`docs/index.html`](docs/index.html) hay una página que explica, en orden, **cómo se compila** el proyecto (Makefile, preprocesado, compilación, ensamblado y enlazado) y **cómo funciona** cada función del código. Incluye una demo interactiva del algoritmo. Descárgala y ábrela en el navegador.
+En [`docs/index.html`](docs/index.html) hay una página que explica, en orden, **cómo se compila** el proyecto (Makefile, preprocesado, compilación, ensamblado y enlazado) y **cómo funciona** cada función del código. Descárgala y ábrela en el navegador. Incluye:
+
+- **Seguimiento de variables:** 10 trazas reales de 6 funciones (`main`, `read_all`, `parse_number`, `validate_map`, `process_row` y `fill_square`). En cada una se avanza línea a línea y se ve el valor de cada variable, su historial y una explicación de qué hace la línea con esos valores. Se generan ejecutando el binario bajo `gdb`.
+- **Demo interactiva** del algoritmo de programación dinámica.
+
+La página se genera con los scripts de [`docs/build/`](docs/build) (en Linux, con `cc` y `gdb`):
+
+```sh
+python3 docs/build/make_traces.py   # ejecuta bsq bajo gdb → docs/build/traces.json
+python3 docs/build/build_page.py    # template.html + código real + trazas → docs/index.html
+```
 
 ## Estructura
 
@@ -36,7 +46,9 @@ tests/
 ├── reference.py       # solucionador de referencia por fuerza bruta
 ├── gen_map.pl         # generador de mapas del enunciado
 └── maps/              # mapas válidos e inválidos
-docs/index.html        # página explicativa
+docs/
+├── index.html         # página explicativa (generada)
+└── build/             # plantilla, trazador gdb y generador de la página
 ```
 
 ## Algoritmo
