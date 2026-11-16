@@ -1,0 +1,1486 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>BSQ explicado</title>
+<meta name="description" content="Cómo se compila y cómo funciona, paso a paso, el programa BSQ de la C Piscine.">
+<style>
+:root {
+	--bg: #f7f6f2;
+	--surface: #ffffff;
+	--surface-2: #f0eee8;
+	--text: #1c1d21;
+	--muted: #5d6169;
+	--border: #e2dfd7;
+	--accent: #2f5bd3;
+	--accent-soft: #e6ecfb;
+	--ok: #1d7a4c;
+	--ok-soft: #e3f3ea;
+	--err: #b42318;
+	--err-soft: #fbe9e7;
+	--fill: #e8a317;
+	--fill-soft: #fdf1d6;
+	--obstacle: #3c3f46;
+	--code-bg: #f3f1ec;
+	--code-text: #24262b;
+	--tk-key: #8a3ab9;
+	--tk-type: #0b7285;
+	--tk-str: #2b8a3e;
+	--tk-num: #c2410c;
+	--tk-com: #868e96;
+	--tk-pre: #b42318;
+	--tk-fn: #2f5bd3;
+	--shadow: 0 1px 2px rgba(20, 20, 30, .05), 0 4px 16px rgba(20, 20, 30, .05);
+	color-scheme: light;
+}
+@media (prefers-color-scheme: dark) {
+	:root:not([data-theme="light"]) {
+		--bg: #111317;
+		--surface: #181b20;
+		--surface-2: #20242b;
+		--text: #e6e4df;
+		--muted: #9ba1ab;
+		--border: #2b3038;
+		--accent: #86a8ff;
+		--accent-soft: #1d2740;
+		--ok: #5fcf95;
+		--ok-soft: #15291f;
+		--err: #ff8a7a;
+		--err-soft: #321b18;
+		--fill: #f2b84b;
+		--fill-soft: #362a12;
+		--obstacle: #c9ccd2;
+		--code-bg: #15181d;
+		--code-text: #dcdad5;
+		--tk-key: #d29bff;
+		--tk-type: #5cc8d6;
+		--tk-str: #8fd18f;
+		--tk-num: #ffab70;
+		--tk-com: #6f7782;
+		--tk-pre: #ff8a7a;
+		--tk-fn: #86a8ff;
+		--shadow: none;
+		color-scheme: dark;
+	}
+}
+:root[data-theme="dark"] {
+	--bg: #111317;
+	--surface: #181b20;
+	--surface-2: #20242b;
+	--text: #e6e4df;
+	--muted: #9ba1ab;
+	--border: #2b3038;
+	--accent: #86a8ff;
+	--accent-soft: #1d2740;
+	--ok: #5fcf95;
+	--ok-soft: #15291f;
+	--err: #ff8a7a;
+	--err-soft: #321b18;
+	--fill: #f2b84b;
+	--fill-soft: #362a12;
+	--obstacle: #c9ccd2;
+	--code-bg: #15181d;
+	--code-text: #dcdad5;
+	--tk-key: #d29bff;
+	--tk-type: #5cc8d6;
+	--tk-str: #8fd18f;
+	--tk-num: #ffab70;
+	--tk-com: #6f7782;
+	--tk-pre: #ff8a7a;
+	--tk-fn: #86a8ff;
+	--shadow: none;
+	color-scheme: dark;
+}
+
+* { box-sizing: border-box; }
+html { scroll-behavior: smooth; scroll-padding-top: 16px; }
+body {
+	margin: 0;
+	background: var(--bg);
+	color: var(--text);
+	font: 16.5px/1.65 system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", sans-serif;
+	-webkit-font-smoothing: antialiased;
+}
+code, pre, .mono { font-family: ui-monospace, "SFMono-Regular", "JetBrains Mono", Menlo, Consolas, monospace; }
+a { color: var(--accent); text-underline-offset: 3px; }
+
+.layout {
+	display: grid;
+	grid-template-columns: 240px minmax(0, 1fr);
+	gap: 48px;
+	max-width: 1180px;
+	margin: 0 auto;
+	padding: 0 24px;
+}
+nav.toc {
+	position: sticky;
+	top: 0;
+	align-self: start;
+	max-height: 100vh;
+	overflow-y: auto;
+	padding: 40px 0 24px;
+	font-size: 14px;
+}
+nav.toc .brand { font-weight: 700; font-size: 15px; letter-spacing: .02em; margin-bottom: 14px; }
+nav.toc ol { list-style: none; margin: 0; padding: 0; counter-reset: toc; }
+nav.toc li { margin: 2px 0; }
+nav.toc a {
+	display: block;
+	padding: 4px 10px;
+	border-radius: 6px;
+	color: var(--muted);
+	text-decoration: none;
+}
+nav.toc a:hover { background: var(--surface-2); color: var(--text); }
+nav.toc a.active { background: var(--accent-soft); color: var(--accent); font-weight: 600; }
+nav.toc ol ol { padding-left: 12px; }
+nav.toc ol ol a { font-size: 13px; padding: 2px 10px; }
+.theme-btn {
+	margin-top: 18px;
+	font: inherit;
+	font-size: 13px;
+	color: var(--muted);
+	background: none;
+	border: 1px solid var(--border);
+	border-radius: 6px;
+	padding: 4px 10px;
+	cursor: pointer;
+}
+
+main { padding: 40px 0 96px; min-width: 0; }
+header.hero { padding: 8px 0 28px; border-bottom: 1px solid var(--border); margin-bottom: 8px; }
+.eyebrow { color: var(--accent); font-weight: 600; font-size: 14px; letter-spacing: .04em; text-transform: uppercase; }
+h1 { font-size: clamp(30px, 5vw, 44px); line-height: 1.12; margin: 8px 0 12px; letter-spacing: -.02em; }
+.lede { font-size: 18px; color: var(--muted); max-width: 680px; margin: 0; }
+.stats { display: flex; flex-wrap: wrap; gap: 10px; margin-top: 22px; }
+.stat {
+	background: var(--surface);
+	border: 1px solid var(--border);
+	border-radius: 10px;
+	padding: 10px 14px;
+	min-width: 120px;
+	box-shadow: var(--shadow);
+}
+.stat b { display: block; font-size: 20px; font-variant-numeric: tabular-nums; }
+.stat span { font-size: 13px; color: var(--muted); }
+
+section { padding-top: 36px; }
+h2 { font-size: 27px; letter-spacing: -.01em; margin: 0 0 6px; line-height: 1.25; }
+h2 .num { color: var(--accent); margin-right: 10px; font-variant-numeric: tabular-nums; }
+h3 { font-size: 20px; margin: 34px 0 6px; }
+h4 { font-size: 16.5px; margin: 26px 0 4px; }
+h4 code { font-size: 15.5px; }
+p { margin: 10px 0; max-width: 760px; }
+ul, ol { max-width: 760px; padding-left: 22px; }
+li { margin: 4px 0; }
+.sub { color: var(--muted); margin-top: 0; }
+
+:not(pre) > code {
+	background: var(--code-bg);
+	border: 1px solid var(--border);
+	border-radius: 5px;
+	padding: 1px 5px;
+	font-size: .88em;
+	white-space: nowrap;
+}
+pre {
+	background: var(--code-bg);
+	color: var(--code-text);
+	border: 1px solid var(--border);
+	border-radius: 10px;
+	padding: 14px 16px;
+	overflow-x: auto;
+	font-size: 13.5px;
+	line-height: 1.55;
+	tab-size: 4;
+	-moz-tab-size: 4;
+	margin: 12px 0;
+}
+pre .file-tag {
+	display: block;
+	color: var(--muted);
+	font-size: 12px;
+	margin: -4px 0 8px;
+	user-select: none;
+}
+.tk-key { color: var(--tk-key); }
+.tk-type { color: var(--tk-type); }
+.tk-str { color: var(--tk-str); }
+.tk-num { color: var(--tk-num); }
+.tk-com { color: var(--tk-com); font-style: italic; }
+.tk-pre { color: var(--tk-pre); }
+.tk-fn { color: var(--tk-fn); }
+.term .prompt { color: var(--muted); user-select: none; }
+.term .cmd { color: var(--text); font-weight: 600; }
+
+.card {
+	background: var(--surface);
+	border: 1px solid var(--border);
+	border-radius: 12px;
+	padding: 18px 20px;
+	margin: 16px 0;
+	box-shadow: var(--shadow);
+}
+.note {
+	border-left: 3px solid var(--accent);
+	background: var(--accent-soft);
+	padding: 10px 14px;
+	border-radius: 0 8px 8px 0;
+	margin: 14px 0;
+	max-width: 760px;
+}
+.note.warn { border-color: var(--fill); background: var(--fill-soft); }
+
+.two-col { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+.two-col pre { margin: 0; }
+.caption { font-size: 13px; color: var(--muted); margin: 6px 0 0; }
+.x { color: var(--fill); font-weight: 700; }
+.o { color: var(--obstacle); font-weight: 700; }
+
+/* Pipeline (compilation) */
+.pipeline { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 0; margin: 20px 0; }
+.stage { position: relative; padding: 0 6px; text-align: center; }
+.stage .box {
+	background: var(--surface);
+	border: 1px solid var(--border);
+	border-radius: 10px;
+	padding: 12px 8px;
+	box-shadow: var(--shadow);
+	min-height: 112px;
+}
+.stage .box b { display: block; font-size: 14px; }
+.stage .box .mono { display: block; font-size: 12px; color: var(--accent); margin: 4px 0; }
+.stage .box small { display: block; color: var(--muted); font-size: 12.5px; line-height: 1.4; }
+.stage:not(:last-child)::after {
+	content: "→";
+	position: absolute;
+	right: -9px;
+	top: 44px;
+	color: var(--muted);
+	font-size: 16px;
+	z-index: 1;
+}
+.stage.final .box { border-color: var(--ok); background: var(--ok-soft); }
+
+/* Dependency tree */
+.deps { display: flex; flex-direction: column; align-items: center; gap: 0; margin: 18px 0 8px; }
+.deps .row { display: flex; flex-wrap: wrap; justify-content: center; gap: 8px; }
+.deps .node {
+	font-family: ui-monospace, Menlo, Consolas, monospace;
+	font-size: 13px;
+	padding: 5px 10px;
+	border-radius: 7px;
+	border: 1px solid var(--border);
+	background: var(--surface);
+}
+.deps .node.target { border-color: var(--ok); background: var(--ok-soft); font-weight: 700; }
+.deps .node.obj { border-color: var(--accent); background: var(--accent-soft); }
+.deps .node.hdr { border-color: var(--fill); background: var(--fill-soft); }
+.deps .arrow { color: var(--muted); font-size: 13px; padding: 4px 0; }
+
+/* Execution flow */
+.flow { list-style: none; padding: 0; margin: 18px 0; max-width: 820px; counter-reset: step; }
+.flow li {
+	position: relative;
+	padding: 0 0 18px 50px;
+	margin: 0;
+	counter-increment: step;
+}
+.flow li::before {
+	content: counter(step);
+	position: absolute;
+	left: 0;
+	top: 0;
+	width: 32px;
+	height: 32px;
+	border-radius: 50%;
+	background: var(--accent);
+	color: var(--surface);
+	font-weight: 700;
+	font-size: 14px;
+	display: grid;
+	place-items: center;
+}
+.flow li:not(:last-child)::after {
+	content: "";
+	position: absolute;
+	left: 15px;
+	top: 34px;
+	bottom: 2px;
+	width: 2px;
+	background: var(--border);
+}
+.flow .fn { font-family: ui-monospace, Menlo, Consolas, monospace; font-weight: 700; }
+.flow .where { font-size: 13px; color: var(--muted); margin-left: 6px; }
+.flow p { margin: 2px 0 0; }
+.flow .err { color: var(--err); font-size: 14px; }
+
+/* Function blocks */
+.fn-block { border-top: 1px dashed var(--border); padding-top: 4px; margin-top: 26px; }
+.fn-block:first-of-type { border-top: 0; }
+.badge {
+	display: inline-block;
+	font-size: 11.5px;
+	font-weight: 600;
+	padding: 1px 7px;
+	border-radius: 99px;
+	margin-left: 6px;
+	vertical-align: 2px;
+	background: var(--surface-2);
+	color: var(--muted);
+	border: 1px solid var(--border);
+}
+
+/* Buffer illustration */
+.buffer { display: flex; flex-wrap: wrap; gap: 3px; margin: 14px 0 6px; }
+.buffer .b {
+	width: 34px;
+	text-align: center;
+	border: 1px solid var(--border);
+	border-radius: 5px;
+	background: var(--surface);
+	font-family: ui-monospace, Menlo, Consolas, monospace;
+	font-size: 14px;
+	padding: 3px 0 1px;
+}
+.buffer .b small { display: block; font-size: 10px; color: var(--muted); }
+.buffer .b.nl { background: var(--surface-2); color: var(--muted); }
+.buffer .b.hl { border-color: var(--fill); background: var(--fill-soft); font-weight: 700; }
+
+/* DP demo */
+.demo { display: grid; grid-template-columns: auto minmax(0, 1fr); gap: 22px; align-items: start; }
+.grid {
+	display: grid;
+	gap: 4px;
+	padding: 10px;
+	background: var(--surface-2);
+	border-radius: 10px;
+	width: max-content;
+}
+.cell {
+	width: 44px;
+	height: 44px;
+	border-radius: 7px;
+	background: var(--surface);
+	border: 1px solid var(--border);
+	display: flex;
+	flex-direction: column;
+	align-items: center;
+	justify-content: center;
+	font-family: ui-monospace, Menlo, Consolas, monospace;
+	line-height: 1.05;
+	transition: background .15s, border-color .15s;
+}
+.cell .ch { font-size: 12px; color: var(--muted); }
+.cell .v { font-size: 17px; font-weight: 700; min-height: 18px; }
+.cell.obst { background: var(--obstacle); border-color: var(--obstacle); }
+.cell.obst .ch, .cell.obst .v { color: var(--bg); }
+.cell.old .v { opacity: .35; }
+.cell.cur { outline: 3px solid var(--accent); outline-offset: 1px; }
+.cell.nb { background: var(--accent-soft); border-color: var(--accent); }
+.cell.best { border-color: var(--fill); border-width: 2px; }
+.cell.filled { background: var(--fill); border-color: var(--fill); }
+.cell.filled .ch, .cell.filled .v { color: #1c1d21; }
+.dp-row { display: flex; gap: 4px; margin-top: 12px; flex-wrap: wrap; }
+.dp-row .slot {
+	width: 44px;
+	text-align: center;
+	border: 1px dashed var(--border);
+	border-radius: 6px;
+	padding: 2px 0;
+	font-family: ui-monospace, Menlo, Consolas, monospace;
+	font-weight: 700;
+	background: var(--surface);
+}
+.dp-row .slot small { display: block; font-size: 10px; color: var(--muted); font-weight: 400; }
+.dp-row .slot.pad { opacity: .6; }
+.dp-row .slot.w { border-style: solid; border-color: var(--accent); }
+.controls { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 14px; }
+.controls button {
+	font: inherit;
+	font-size: 14px;
+	padding: 6px 14px;
+	border-radius: 8px;
+	border: 1px solid var(--border);
+	background: var(--surface);
+	color: var(--text);
+	cursor: pointer;
+}
+.controls button.primary { background: var(--accent); border-color: var(--accent); color: var(--surface); font-weight: 600; }
+.controls button:disabled { opacity: .45; cursor: default; }
+.explain {
+	font-family: ui-monospace, Menlo, Consolas, monospace;
+	font-size: 14px;
+	background: var(--code-bg);
+	border: 1px solid var(--border);
+	border-radius: 8px;
+	padding: 10px 12px;
+	min-height: 70px;
+	white-space: pre-wrap;
+}
+.legend { display: flex; flex-wrap: wrap; gap: 14px; font-size: 13px; color: var(--muted); margin-top: 10px; }
+.legend i { display: inline-block; width: 12px; height: 12px; border-radius: 3px; vertical-align: -1px; margin-right: 5px; border: 1px solid var(--border); }
+
+/* Tables */
+.table-wrap { overflow-x: auto; margin: 14px 0; }
+table { border-collapse: collapse; width: 100%; font-size: 14.5px; background: var(--surface); border-radius: 10px; overflow: hidden; }
+th, td { text-align: left; padding: 8px 12px; border-bottom: 1px solid var(--border); vertical-align: top; }
+th { background: var(--surface-2); font-size: 13px; text-transform: uppercase; letter-spacing: .03em; color: var(--muted); }
+td.num { font-variant-numeric: tabular-nums; text-align: right; white-space: nowrap; }
+.pass { color: var(--ok); font-weight: 700; }
+
+footer { margin-top: 56px; padding-top: 18px; border-top: 1px solid var(--border); color: var(--muted); font-size: 14px; }
+
+@media (max-width: 980px) {
+	.layout { grid-template-columns: minmax(0, 1fr); gap: 0; padding: 0 16px; }
+	nav.toc { display: none; }
+	main { padding-top: 24px; }
+	.pipeline { grid-template-columns: minmax(0, 1fr); gap: 22px; }
+	.stage:not(:last-child)::after { content: "↓"; right: auto; left: 50%; top: auto; bottom: -21px; transform: translateX(-50%); }
+	.stage .box { min-height: 0; }
+	.demo { grid-template-columns: minmax(0, 1fr); }
+}
+@media (max-width: 640px) {
+	.two-col { grid-template-columns: minmax(0, 1fr); }
+	.card { padding: 14px; }
+	.cell { width: 30px; height: 30px; border-radius: 5px; }
+	.cell .ch { font-size: 10px; }
+	.cell .v { font-size: 13px; min-height: 14px; }
+	.dp-row { gap: 3px; }
+	.dp-row .slot { width: 30px; }
+	.dp-row .slot small { font-size: 8px; }
+	.grid { gap: 3px; padding: 8px; max-width: 100%; overflow-x: auto; }
+	h2 { font-size: 23px; }
+}
+</style>
+</head>
+<body>
+<div class="layout">
+<nav class="toc" aria-label="Índice">
+	<div class="brand">BSQ explicado</div>
+	<ol>
+		<li><a href="#problema">0 · El problema</a></li>
+		<li><a href="#estructura">1 · Estructura</a></li>
+		<li><a href="#compilacion">2 · Compilación</a>
+			<ol>
+				<li><a href="#makefile">2.1 El Makefile</a></li>
+				<li><a href="#fases">2.2 Las 4 fases de cc</a></li>
+				<li><a href="#relink">2.3 Sin relink</a></li>
+			</ol>
+		</li>
+		<li><a href="#ejecucion">3 · Ejecución</a></li>
+		<li><a href="#codigo">4 · El código</a>
+			<ol>
+				<li><a href="#bsq-h">4.1 bsq.h</a></li>
+				<li><a href="#main-c">4.2 main.c</a></li>
+				<li><a href="#read-c">4.3 read_input.c</a></li>
+				<li><a href="#parse-c">4.4 parse.c</a></li>
+				<li><a href="#validate-c">4.5 validate.c</a></li>
+				<li><a href="#solve-c">4.6 solve.c</a></li>
+			</ol>
+		</li>
+		<li><a href="#demo">5 · El algoritmo en vivo</a></li>
+		<li><a href="#errores">6 · map error</a></li>
+		<li><a href="#pruebas">7 · Pruebas</a></li>
+		<li><a href="#uso">8 · Cómo usarlo</a></li>
+	</ol>
+	<button class="theme-btn" id="themeBtn" type="button">Cambiar tema</button>
+</nav>
+
+<main>
+<header class="hero">
+	<div class="eyebrow">C Piscine · Proyecto final</div>
+	<h1>BSQ: cómo se compila y cómo funciona</h1>
+	<p class="lede">Un recorrido en orden: primero qué pasa cuando escribes <code>make</code>, y después qué hace el programa, función a función, desde que recibe un mapa hasta que dibuja el cuadrado más grande.</p>
+	<div class="stats">
+		<div class="stat"><b>5 + 1</b><span>archivos .c + .h</span></div>
+		<div class="stat"><b>19</b><span>funciones, ≤ 25 líneas</span></div>
+		<div class="stat"><b>0</b><span>bucles <code>for</code></span></div>
+		<div class="stat"><b>44 / 44</b><span>pruebas superadas</span></div>
+		<div class="stat"><b>0,85 s</b><span>mapa 10 000 × 10 000</span></div>
+	</div>
+</header>
+
+<section id="problema">
+	<h2><span class="num">0</span>El problema</h2>
+	<p>Recibimos un mapa. La primera línea dice cuántas filas tiene y qué carácter significa <em>vacío</em>, <em>obstáculo</em> y <em>lleno</em>. Hay que encontrar el <strong>cuadrado más grande</strong> que no toque ningún obstáculo y pintarlo con el carácter de lleno. Si hay empate, gana el que esté <strong>más arriba</strong> y, después, <strong>más a la izquierda</strong>.</p>
+	<div class="two-col">
+		<div>
+<pre class="mono"><span class="file-tag">entrada · example_file</span>9.ox
+...........................
+....<span class="o">o</span>......................
+............<span class="o">o</span>..............
+...........................
+....<span class="o">o</span>......................
+...............<span class="o">o</span>...........
+...........................
+......<span class="o">o</span>..............<span class="o">o</span>.....
+..<span class="o">o</span>.......<span class="o">o</span>................</pre>
+		</div>
+		<div>
+<pre class="mono"><span class="file-tag">salida · ./bsq example_file</span>.....<span class="x">xxxxxxx</span>...............
+....<span class="o">o</span><span class="x">xxxxxxx</span>...............
+.....<span class="x">xxxxxxx</span><span class="o">o</span>..............
+.....<span class="x">xxxxxxx</span>...............
+....<span class="o">o</span><span class="x">xxxxxxx</span>...............
+.....<span class="x">xxxxxxx</span>...<span class="o">o</span>...........
+.....<span class="x">xxxxxxx</span>...............
+......<span class="o">o</span>..............<span class="o">o</span>.....
+..<span class="o">o</span>.......<span class="o">o</span>................</pre>
+		</div>
+	</div>
+	<p>La cabecera <code>9.ox</code> se lee así: <code>9</code> filas, <code>.</code> vacío, <code>o</code> obstáculo, <code>x</code> lleno. El cuadrado de la salida mide 7 × 7 (en la terminal parece un rectángulo porque los caracteres son más altos que anchos).</p>
+	<p>Restricciones: solo se pueden usar <code>open</code>, <code>close</code>, <code>read</code>, <code>write</code>, <code>malloc</code>, <code>free</code> y <code>exit</code>, y todo el código debe cumplir la Norma de 42 (sin <code>for</code>, funciones de 25 líneas como máximo, variables declaradas arriba y sin inicializar, llaves en su propia línea, etc.).</p>
+</section>
+
+<section id="estructura">
+	<h2><span class="num">1</span>Estructura del proyecto</h2>
+	<p>Cada archivo tiene una única responsabilidad y están ordenados según el momento en que entran en juego durante la ejecución:</p>
+<pre class="mono">ex00/
+├── Makefile           <span class="tk-com"># receta de compilación</span>
+├── includes/
+│   └── bsq.h          <span class="tk-com"># structs, constantes y prototipos compartidos</span>
+└── srcs/
+    ├── main.c         <span class="tk-com"># 1. punto de entrada: argumentos, archivos, salida</span>
+    ├── read_input.c   <span class="tk-com"># 2. leer el archivo/stdin entero a memoria</span>
+    ├── parse.c        <span class="tk-com"># 3. interpretar la primera línea</span>
+    ├── validate.c     <span class="tk-com"># 4. comprobar que el mapa es válido</span>
+    └── solve.c        <span class="tk-com"># 5. encontrar y pintar el cuadrado</span></pre>
+</section>
+
+<section id="compilacion">
+	<h2><span class="num">2</span>Compilación: qué pasa al escribir <code>make</code></h2>
+	<p class="sub">Del texto fuente al ejecutable <code>bsq</code>, en el orden exacto en que ocurre.</p>
+
+	<h3 id="makefile">2.1 El Makefile decide qué compilar y en qué orden</h3>
+<pre><span class="file-tag">Makefile</span><code data-lang="make">NAME		= bsq
+
+CC			= cc
+CFLAGS		= -Wall -Wextra -Werror
+INCLUDES	= -I includes
+
+HEADER		= includes/bsq.h
+SRCS		= srcs/main.c \
+			  srcs/read_input.c \
+			  srcs/parse.c \
+			  srcs/validate.c \
+			  srcs/solve.c
+OBJS		= $(SRCS:.c=.o)
+
+all: $(NAME)
+
+$(NAME): $(OBJS)
+	$(CC) $(CFLAGS) $(OBJS) -o $(NAME)
+
+%.o: %.c $(HEADER)
+	$(CC) $(CFLAGS) $(INCLUDES) -c $&lt; -o $@
+
+clean:
+	rm -f $(OBJS)
+
+fclean: clean
+	rm -f $(NAME)
+
+re: fclean all
+
+.PHONY: all clean fclean re</code></pre>
+	<p><code>make</code> sin argumentos ejecuta la <strong>primera regla</strong> del archivo, <code>all</code>. A partir de ahí construye un árbol de dependencias y lo recorre de abajo arriba:</p>
+	<div class="deps" aria-label="Árbol de dependencias">
+		<div class="row"><span class="node target">bsq</span></div>
+		<div class="arrow">depende de ↑</div>
+		<div class="row">
+			<span class="node obj">main.o</span><span class="node obj">read_input.o</span><span class="node obj">parse.o</span><span class="node obj">validate.o</span><span class="node obj">solve.o</span>
+		</div>
+		<div class="arrow">cada uno depende de ↑</div>
+		<div class="row"><span class="node">srcs/&lt;nombre&gt;.c</span><span class="node hdr">includes/bsq.h</span></div>
+	</div>
+	<ol>
+		<li><code>all</code> necesita <code>$(NAME)</code>, es decir, el archivo <code>bsq</code>.</li>
+		<li><code>bsq</code> necesita los cinco <code>.o</code> de <code>$(OBJS)</code>. <code>$(SRCS:.c=.o)</code> los obtiene cambiando la extensión de cada fuente.</li>
+		<li>Cada <code>.o</code> se construye con la regla patrón <code>%.o: %.c $(HEADER)</code>. En el comando, <code>$&lt;</code> es el primer prerrequisito (el <code>.c</code>) y <code>$@</code> es el objetivo (el <code>.o</code>).</li>
+		<li>Cuando ya están los cinco objetos, se ejecuta la regla de <code>bsq</code>, que los <strong>enlaza</strong>.</li>
+	</ol>
+	<p>Esta es la salida real de <code>make</code> en un proyecto limpio:</p>
+<pre class="term"><span class="prompt">$ </span><span class="cmd">make</span>
+cc -Wall -Wextra -Werror -I includes -c srcs/main.c -o srcs/main.o
+cc -Wall -Wextra -Werror -I includes -c srcs/read_input.c -o srcs/read_input.o
+cc -Wall -Wextra -Werror -I includes -c srcs/parse.c -o srcs/parse.o
+cc -Wall -Wextra -Werror -I includes -c srcs/validate.c -o srcs/validate.o
+cc -Wall -Wextra -Werror -I includes -c srcs/solve.c -o srcs/solve.o
+cc -Wall -Wextra -Werror srcs/main.o srcs/read_input.o srcs/parse.o srcs/validate.o srcs/solve.o -o bsq</pre>
+	<p>Las cinco primeras líneas llevan <code>-c</code>: «compila, pero no enlaces». Cada archivo se compila <strong>por separado</strong> y no sabe nada de los demás salvo lo que declara <code>bsq.h</code>. La sexta línea no lleva <code>-c</code>, así que es el <strong>enlazado</strong>.</p>
+
+	<h3 id="fases">2.2 Las 4 fases por las que pasa cada archivo</h3>
+	<p>Cada línea <code>cc … -c archivo.c</code> recorre por dentro estas fases. Las tres primeras se repiten para cada <code>.c</code> y la cuarta ocurre una sola vez:</p>
+	<div class="pipeline">
+		<div class="stage"><div class="box"><b>Fuente</b><span class="mono">main.c</span><small>Texto C escrito a mano.</small></div></div>
+		<div class="stage"><div class="box"><b>1 · Preprocesado</b><span class="mono">cpp</span><small>Copia los <code>#include</code> y sustituye las macros.</small></div></div>
+		<div class="stage"><div class="box"><b>2 · Compilación</b><span class="mono">cc1</span><small>Traduce C a ensamblador y comprueba los warnings.</small></div></div>
+		<div class="stage"><div class="box"><b>3 · Ensamblado</b><span class="mono">as → main.o</span><small>Traduce el ensamblador a código máquina.</small></div></div>
+		<div class="stage final"><div class="box"><b>4 · Enlazado</b><span class="mono">ld → bsq</span><small>Une los 5 <code>.o</code> y la libc en un ejecutable.</small></div></div>
+	</div>
+
+	<h4>1 · Preprocesado</h4>
+	<p>El preprocesador trabaja solo con texto. Al encontrar <code>#include "bsq.h"</code>, busca el archivo en las carpetas indicadas con <code>-I includes</code> y pega su contenido en ese punto. Como <code>bsq.h</code> incluye a su vez <code>&lt;unistd.h&gt;</code>, <code>&lt;stdlib.h&gt;</code>, <code>&lt;fcntl.h&gt;</code> y <code>&lt;limits.h&gt;</code>, el <code>main.c</code> de unas 70 líneas pasa a tener <strong>2 843 líneas</strong> (medido con <code>cc -E</code>). Además se sustituyen las macros: <code>BUFFER_SIZE</code> pasa a ser <code>65536</code>, <code>INT_MAX</code> pasa a ser <code>2147483647</code> y <code>O_RDONLY</code> pasa a ser <code>0</code>.</p>
+	<p>El <em>include guard</em> (<code>#ifndef BSQ_H / # define BSQ_H / #endif</code>) evita que el contenido se pegue dos veces si algún archivo incluyera la cabecera más de una vez.</p>
+
+	<h4>2 · Compilación propiamente dicha</h4>
+	<p>El compilador analiza el C ya preprocesado, comprueba los tipos y genera ensamblador x86-64. Aquí actúan los flags obligatorios: <code>-Wall</code> y <code>-Wextra</code> activan casi todos los avisos (variables sin usar, parámetros sin usar, comparaciones entre tipos con y sin signo…) y <code>-Werror</code> convierte cualquier aviso en un error que detiene la compilación. El proyecto compila sin un solo aviso.</p>
+
+	<h4>3 · Ensamblado</h4>
+	<p>El ensamblador convierte el texto ensamblador en código máquina dentro de un <strong>archivo objeto</strong> <code>.o</code>. Ese objeto todavía no se puede ejecutar. Las llamadas a funciones que están en otro archivo quedan como <em>símbolos sin resolver</em>: por ejemplo, <code>main.o</code> llama a <code>read_all</code> pero no contiene su código, porque está en <code>read_input.o</code>.</p>
+	<div class="table-wrap"><table>
+		<thead><tr><th>Objeto</th><th>Código máquina</th><th>Funciones que define</th></tr></thead>
+		<tbody>
+			<tr><td class="mono">main.o</td><td class="num">721 B</td><td>print_map_error, write_all, process_fd, process_file, main</td></tr>
+			<tr><td class="mono">read_input.o</td><td class="num">626 B</td><td>grow_buffer, read_all</td></tr>
+			<tr><td class="mono">parse.o</td><td class="num">937 B</td><td>is_printable, parse_number, check_charset, parse_header</td></tr>
+			<tr><td class="mono">validate.o</td><td class="num">544 B</td><td>get_line_length, is_valid_cell, validate_map</td></tr>
+			<tr><td class="mono">solve.o</td><td class="num">1 079 B</td><td>min_of_three, create_row, process_row, fill_square, solve</td></tr>
+		</tbody>
+	</table></div>
+
+	<h4>4 · Enlazado</h4>
+	<p>El enlazador junta los cinco objetos y resuelve los símbolos: la llamada a <code>read_all</code> de <code>main.o</code> se conecta con su definición en <code>read_input.o</code>, y así con todas. Lo que no está en ningún <code>.o</code> lo busca en la biblioteca estándar de C (libc). Con <code>nm -u bsq</code> se ve exactamente qué toma el ejecutable de fuera:</p>
+<pre class="term"><span class="prompt">$ </span><span class="cmd">nm -u bsq</span>
+                 U __libc_start_main@GLIBC_2.34   <span class="tk-com"># arranque del programa (lo añade cc)</span>
+                 U __stack_chk_fail@GLIBC_2.4     <span class="tk-com"># protección de pila (lo añade cc)</span>
+                 U close@GLIBC_2.2.5
+                 U free@GLIBC_2.2.5
+                 U malloc@GLIBC_2.2.5
+                 U open@GLIBC_2.2.5
+                 U read@GLIBC_2.2.5
+                 U write@GLIBC_2.2.5</pre>
+	<p>Esto es una <strong>prueba de que solo se usan funciones autorizadas</strong>: <code>open</code>, <code>close</code>, <code>read</code>, <code>write</code>, <code>malloc</code> y <code>free</code>. Las otras dos las añade el propio compilador para arrancar el programa y proteger la pila. El resultado es <code>bsq</code>, un ejecutable de unos 6 KB de código y datos.</p>
+
+	<h3 id="relink">2.3 Por qué el Makefile no hace relink</h3>
+	<p><code>make</code> compara la <strong>fecha de modificación</strong> de cada objetivo con la de sus prerrequisitos y solo rehace lo que está desactualizado:</p>
+<pre class="term"><span class="prompt">$ </span><span class="cmd">make</span>
+make: Nothing to be done for 'all'.</pre>
+	<ul>
+		<li>Si no ha cambiado nada, no se ejecuta ningún comando, ni siquiera el enlazado. Eso es lo que pide el enunciado.</li>
+		<li>Si solo editas <code>solve.c</code>, se recompila <code>solve.o</code> y se vuelve a enlazar <code>bsq</code>. Los otros cuatro objetos se reutilizan.</li>
+		<li>Si editas <code>bsq.h</code>, se recompilan todos, porque cada <code>.o</code> lo tiene como prerrequisito. Sin esa dependencia, un cambio en un struct podría dejar objetos incompatibles entre sí.</li>
+		<li><code>.PHONY</code> indica que <code>all</code>, <code>clean</code>, <code>fclean</code> y <code>re</code> son nombres de acciones, no de archivos. Así funcionan aunque exista un archivo con ese nombre.</li>
+		<li><code>clean</code> borra los <code>.o</code>, <code>fclean</code> borra además <code>bsq</code>, y <code>re</code> equivale a <code>fclean</code> seguido de <code>all</code>.</li>
+	</ul>
+</section>
+
+<section id="ejecucion">
+	<h2><span class="num">3</span>Ejecución: el viaje de un mapa</h2>
+	<p class="sub">Qué funciones se llaman, en orden, al ejecutar <code>./bsq mapa</code>.</p>
+	<ol class="flow">
+		<li><span class="fn">main</span><span class="where">main.c</span>
+			<p>Si no hay argumentos, lee de la entrada estándar (fd 0). Si los hay, procesa cada archivo y escribe una línea vacía entre un resultado y el siguiente.</p></li>
+		<li><span class="fn">process_file</span><span class="where">main.c</span>
+			<p>Abre el archivo con <code>open</code> y obtiene un descriptor (fd).</p>
+			<p class="err">Si no existe o no se puede abrir → map error</p></li>
+		<li><span class="fn">process_fd</span><span class="where">main.c</span>
+			<p>Coordina todo lo que sigue. Lo mismo vale para un archivo que para stdin.</p></li>
+		<li><span class="fn">read_all</span><span class="where">read_input.c</span>
+			<p>Lee el contenido completo a un único buffer en memoria.</p></li>
+		<li><span class="fn">parse_header</span><span class="where">parse.c</span>
+			<p>Interpreta la primera línea: número de filas y los tres caracteres.</p>
+			<p class="err">Cabecera inválida → map error</p></li>
+		<li><span class="fn">validate_map</span><span class="where">validate.c</span>
+			<p>Comprueba que todas las líneas miden lo mismo, que hay tantas como dice la cabecera y que solo contienen caracteres permitidos.</p>
+			<p class="err">Mapa inválido → map error</p></li>
+		<li><span class="fn">solve</span><span class="where">solve.c</span>
+			<p>Recorre el mapa una sola vez con programación dinámica, encuentra el cuadrado y lo pinta <strong>dentro del mismo buffer</strong>.</p></li>
+		<li><span class="fn">write_all</span><span class="where">main.c</span>
+			<p>Escribe el mapa resuelto en la salida estándar, normalmente con una sola llamada a <code>write</code>.</p></li>
+		<li><span class="fn">free · close</span><span class="where">main.c</span>
+			<p>Libera el buffer y cierra el archivo. No queda memoria sin liberar en ningún camino, ni siquiera en los de error (comprobado con valgrind).</p></li>
+	</ol>
+</section>
+
+<section id="codigo">
+	<h2><span class="num">4</span>El código, archivo a archivo</h2>
+	<p class="sub">En el mismo orden en que se ejecuta. El código que aparece aquí es el de los archivos reales, sin la cabecera de 42.</p>
+
+	<h3 id="bsq-h">4.1 <code>includes/bsq.h</code>: lo que comparten todos</h3>
+<pre><span class="file-tag">includes/bsq.h</span><code data-lang="c">#ifndef BSQ_H
+# define BSQ_H
+
+# include &lt;unistd.h&gt;
+# include &lt;stdlib.h&gt;
+# include &lt;fcntl.h&gt;
+# include &lt;limits.h&gt;
+
+# define BUFFER_SIZE 65536
+
+typedef struct s_map
+{
+	char	*buf;
+	long	len;
+	char	*grid;
+	long	grid_len;
+	int		rows;
+	long	cols;
+	char	empty;
+	char	obstacle;
+	char	full;
+}	t_map;
+
+typedef struct s_square
+{
+	int		size;
+	int		row;
+	long	col;
+}	t_square;
+
+void	print_map_error(void);
+void	process_fd(int fd);
+int		read_all(int fd, t_map *map);
+int		parse_header(t_map *map);
+int		validate_map(t_map *map);
+int		solve(t_map *map);
+
+#endif</code></pre>
+	<p>Es el único archivo que conocen los cinco <code>.c</code>. Contiene tres cosas:</p>
+	<ul>
+		<li><strong>Includes y constantes.</strong> Dentro del <code>#ifndef</code> la Norma exige un espacio tras la almohadilla (<code># include</code>). <code>BUFFER_SIZE</code> es el tamaño del primer bloque de lectura.</li>
+		<li><strong><code>t_map</code></strong>, todo lo que sabemos de un mapa. <code>buf</code> es el archivo entero en memoria. <code>grid</code> no es una copia: es un puntero que señala dentro de <code>buf</code>, justo después de la cabecera. <code>cols</code> y los tamaños son <code>long</code> para que <code>fila × (cols + 1)</code> no se desborde en mapas enormes.</li>
+		<li><strong><code>t_square</code></strong>, el mejor cuadrado encontrado: su lado (<code>size</code>) y la fila y columna de su esquina <strong>inferior derecha</strong> (más adelante se explica por qué inferior derecha).</li>
+	</ul>
+	<p>Así queda el buffer en memoria para un mapa pequeño de 3 × 4. <code>grid</code> apunta a la casilla 0 de la primera fila de datos:</p>
+	<div class="buffer" id="bufferDemo" aria-label="Buffer de ejemplo"></div>
+	<p class="caption">Cada fila ocupa <code>cols + 1</code> bytes (4 caracteres + <code>\n</code>). La celda de la fila 2, columna 1 está en <code>grid[2 × 5 + 1] = grid[11]</code>, resaltada arriba. Gracias a esto el programa pinta el cuadrado directamente sobre el buffer y luego lo imprime de una vez, sin copiarlo.</p>
+
+	<h3 id="main-c">4.2 <code>srcs/main.c</code>: entrada, orquestación y salida</h3>
+	<div class="fn-block">
+		<h4><code>main</code><span class="badge">punto de entrada</span></h4>
+<pre><span class="file-tag">srcs/main.c</span><code data-lang="c">int	main(int argc, char **argv)
+{
+	int	i;
+
+	if (argc &lt; 2)
+	{
+		process_fd(0);
+		return (0);
+	}
+	i = 1;
+	while (i &lt; argc)
+	{
+		if (i &gt; 1)
+			write(1, "\n", 1);
+		process_file(argv[i]);
+		i++;
+	}
+	return (0);
+}</code></pre>
+		<ul>
+			<li><code>argc &lt; 2</code> significa que no hay archivos, así que se lee el mapa del descriptor <code>0</code> (stdin). Así funcionan <code>./bsq &lt; mapa</code> y <code>cat mapa | ./bsq</code>.</li>
+			<li>Con archivos, un <code>while</code> (los <code>for</code> están prohibidos) recorre <code>argv[1]</code> … <code>argv[argc - 1]</code>.</li>
+			<li><code>if (i &gt; 1)</code> escribe <code>\n</code> <em>antes</em> de cada archivo salvo el primero, lo que produce exactamente una línea vacía <em>entre</em> resultados, sean soluciones o <code>map error</code>.</li>
+		</ul>
+	</div>
+	<div class="fn-block">
+		<h4><code>process_file</code><span class="badge">static</span></h4>
+<pre><span class="file-tag">srcs/main.c</span><code data-lang="c">static void	process_file(char *path)
+{
+	int	fd;
+
+	fd = open(path, O_RDONLY);
+	if (fd &lt; 0)
+	{
+		print_map_error();
+		return ;
+	}
+	process_fd(fd);
+	close(fd);
+}</code></pre>
+		<p>Abre el archivo en modo solo lectura. Si <code>open</code> devuelve un número negativo (archivo inexistente, sin permisos, una carpeta…) muestra el error y termina. Si no, delega en <code>process_fd</code> y después cierra el descriptor. Es <code>static</code> porque solo se usa dentro de <code>main.c</code>.</p>
+	</div>
+	<div class="fn-block">
+		<h4><code>process_fd</code><span class="badge">el director de orquesta</span></h4>
+<pre><span class="file-tag">srcs/main.c</span><code data-lang="c">void	process_fd(int fd)
+{
+	t_map	map;
+
+	if (!read_all(fd, &amp;map))
+	{
+		print_map_error();
+		return ;
+	}
+	if (parse_header(&amp;map) &amp;&amp; validate_map(&amp;map) &amp;&amp; solve(&amp;map))
+		write_all(map.grid, map.grid_len);
+	else
+		print_map_error();
+	free(map.buf);
+}</code></pre>
+		<ul>
+			<li>El <code>t_map</code> vive en la pila. El único <code>malloc</code> que perdura es <code>map.buf</code>, y por eso hay un solo <code>free</code> al final.</li>
+			<li>Si <code>read_all</code> falla, ella misma ya ha liberado su memoria, así que aquí basta con mostrar el error y salir con <code>return ;</code>.</li>
+			<li>La condición encadenada usa la <strong>evaluación en cortocircuito</strong> de <code>&amp;&amp;</code>: si <code>parse_header</code> devuelve 0, ni se llama a <code>validate_map</code> ni a <code>solve</code>. Con una sola línea se consigue que cada fase solo se ejecute si la anterior ha ido bien.</li>
+			<li><code>map.grid</code> apunta al mapa ya resuelto (sin la cabecera), que es justo lo que hay que imprimir.</li>
+		</ul>
+	</div>
+	<div class="fn-block">
+		<h4><code>write_all</code><span class="badge">static</span></h4>
+<pre><span class="file-tag">srcs/main.c</span><code data-lang="c">static void	write_all(char *str, long len)
+{
+	long	written;
+
+	while (len &gt; 0)
+	{
+		written = write(1, str, len);
+		if (written &lt;= 0)
+			return ;
+		str += written;
+		len -= written;
+	}
+}</code></pre>
+		<p><code>write</code> puede escribir <em>menos</em> bytes de los pedidos, por ejemplo con tuberías o salidas muy grandes. Esta función repite la llamada avanzando el puntero hasta escribirlo todo. En la práctica suele bastar una sola llamada, lo que es mucho más rápido que imprimir carácter a carácter.</p>
+	</div>
+	<div class="fn-block">
+		<h4><code>print_map_error</code></h4>
+<pre><span class="file-tag">srcs/main.c</span><code data-lang="c">void	print_map_error(void)
+{
+	write(2, "map error\n", 10);
+}</code></pre>
+		<p>Escribe el mensaje en el descriptor <code>2</code> (la salida de errores, stderr) para no mezclarlo con las soluciones. La longitud <code>10</code> es la de <code>"map error\n"</code>.</p>
+	</div>
+
+	<h3 id="read-c">4.3 <code>srcs/read_input.c</code>: leer sin saber el tamaño</h3>
+	<p>No se pueden usar <code>lseek</code> ni <code>fstat</code>, y stdin puede ser una tubería, así que <strong>no hay forma de conocer el tamaño de antemano</strong>. La solución es un buffer que crece duplicándose.</p>
+	<div class="fn-block">
+		<h4><code>read_all</code></h4>
+<pre><span class="file-tag">srcs/read_input.c</span><code data-lang="c">int	read_all(int fd, t_map *map)
+{
+	long	capacity;
+	long	bytes;
+
+	capacity = BUFFER_SIZE;
+	map-&gt;len = 0;
+	map-&gt;buf = malloc(capacity);
+	if (!map-&gt;buf)
+		return (0);
+	bytes = read(fd, map-&gt;buf, capacity);
+	while (bytes &gt; 0)
+	{
+		map-&gt;len += bytes;
+		if (map-&gt;len == capacity &amp;&amp; !grow_buffer(map, &amp;capacity))
+			return (0);
+		bytes = read(fd, map-&gt;buf + map-&gt;len, capacity - map-&gt;len);
+	}
+	if (bytes &lt; 0)
+	{
+		free(map-&gt;buf);
+		return (0);
+	}
+	return (1);
+}</code></pre>
+		<ol>
+			<li>Reserva un primer bloque de 64 KB (<code>BUFFER_SIZE</code>).</li>
+			<li><code>read</code> rellena la parte libre del buffer y devuelve los bytes leídos: <code>0</code> si se ha llegado al final y <code>-1</code> si hay un error.</li>
+			<li>Si el buffer se llena exactamente (<code>len == capacity</code>), se duplica con <code>grow_buffer</code> antes de seguir leyendo.</li>
+			<li>Al salir del bucle, <code>bytes &lt; 0</code> indica un error de lectura: se libera la memoria y se devuelve 0.</li>
+		</ol>
+		<div class="note">¿Por qué <strong>duplicar</strong> y no sumar un bloque fijo? Al duplicar, el total de bytes copiados es menor que 2 × el tamaño final, así que la lectura completa cuesta O(n). Con bloques fijos, un archivo de 100 MB provocaría miles de copias cada vez más grandes, con un coste O(n²).</div>
+	</div>
+	<div class="fn-block">
+		<h4><code>grow_buffer</code><span class="badge">static</span></h4>
+<pre><span class="file-tag">srcs/read_input.c</span><code data-lang="c">static int	grow_buffer(t_map *map, long *capacity)
+{
+	char	*new_buf;
+	long	i;
+
+	new_buf = malloc(*capacity * 2);
+	if (!new_buf)
+	{
+		free(map-&gt;buf);
+		return (0);
+	}
+	i = 0;
+	while (i &lt; map-&gt;len)
+	{
+		new_buf[i] = map-&gt;buf[i];
+		i++;
+	}
+	free(map-&gt;buf);
+	map-&gt;buf = new_buf;
+	*capacity *= 2;
+	return (1);
+}</code></pre>
+		<p>Es un <code>realloc</code> hecho a mano, porque <code>realloc</code> no está permitido: reserva el doble, copia byte a byte con <code>while</code>, libera el bloque viejo y actualiza la capacidad. Si <code>malloc</code> falla, libera el buffer antiguo antes de devolver 0, para no perder memoria.</p>
+	</div>
+
+	<h3 id="parse-c">4.4 <code>srcs/parse.c</code>: la primera línea</h3>
+	<div class="fn-block">
+		<h4><code>parse_header</code></h4>
+<pre><span class="file-tag">srcs/parse.c</span><code data-lang="c">int	parse_header(t_map *map)
+{
+	long	i;
+
+	i = 0;
+	while (i &lt; map-&gt;len &amp;&amp; map-&gt;buf[i] != '\n')
+		i++;
+	if (i == map-&gt;len || i &lt; 4)
+		return (0);
+	map-&gt;empty = map-&gt;buf[i - 3];
+	map-&gt;obstacle = map-&gt;buf[i - 2];
+	map-&gt;full = map-&gt;buf[i - 1];
+	if (!check_charset(map))
+		return (0);
+	if (!parse_number(map-&gt;buf, i - 3, &amp;map-&gt;rows))
+		return (0);
+	map-&gt;grid = map-&gt;buf + i + 1;
+	map-&gt;grid_len = map-&gt;len - i - 1;
+	return (1);
+}</code></pre>
+		<ol>
+			<li>Avanza <code>i</code> hasta el primer <code>\n</code>. Al terminar, <code>i</code> es la longitud de la cabecera.</li>
+			<li>Si no hay <code>\n</code> (<code>i == len</code>) o la cabecera tiene menos de 4 caracteres (al menos 1 dígito y 3 símbolos), el mapa es inválido.</li>
+			<li>Los <strong>tres últimos</strong> caracteres son vacío, obstáculo y lleno. Todo lo anterior (<code>i - 3</code> caracteres) es el número de filas.</li>
+			<li><code>grid</code> apunta al byte siguiente al <code>\n</code> y <code>grid_len</code> es lo que queda del archivo.</li>
+		</ol>
+		<p>Ejemplos: con <code>9.ox</code> se obtienen 9 filas y los caracteres <code>.</code> <code>o</code> <code>x</code>. Con <code>2123</code> se obtienen 2 filas, vacío <code>1</code>, obstáculo <code>2</code> y lleno <code>3</code>; los dígitos también son caracteres válidos.</p>
+	</div>
+	<div class="fn-block">
+		<h4><code>check_charset</code> e <code>is_printable</code><span class="badge">static</span></h4>
+<pre><span class="file-tag">srcs/parse.c</span><code data-lang="c">static int	check_charset(t_map *map)
+{
+	if (!is_printable(map-&gt;empty) || !is_printable(map-&gt;obstacle)
+		|| !is_printable(map-&gt;full))
+		return (0);
+	if (map-&gt;empty == map-&gt;obstacle || map-&gt;empty == map-&gt;full
+		|| map-&gt;obstacle == map-&gt;full)
+		return (0);
+	return (1);
+}</code></pre>
+<pre><span class="file-tag">srcs/parse.c</span><code data-lang="c">static int	is_printable(char c)
+{
+	return (c &gt;= 32 &amp;&amp; c &lt;= 126);
+}</code></pre>
+		<p>Los tres caracteres deben ser <strong>imprimibles</strong> (ASCII 32–126, por lo que el espacio y los dígitos valen) y <strong>distintos</strong> entre sí. Como <code>char</code> tiene signo, los bytes no ASCII son negativos y no pasan el filtro.</p>
+	</div>
+	<div class="fn-block">
+		<h4><code>parse_number</code><span class="badge">static</span></h4>
+<pre><span class="file-tag">srcs/parse.c</span><code data-lang="c">static int	parse_number(char *str, long len, int *result)
+{
+	long	i;
+	int		digit;
+
+	if (len &lt; 1)
+		return (0);
+	*result = 0;
+	i = 0;
+	while (i &lt; len)
+	{
+		if (str[i] &lt; '0' || str[i] &gt; '9')
+			return (0);
+		digit = str[i] - '0';
+		if (*result &gt; (INT_MAX - digit) / 10)
+			return (0);
+		*result = *result * 10 + digit;
+		i++;
+	}
+	return (*result &gt; 0);
+}</code></pre>
+		<ul>
+			<li>Solo admite dígitos, así que <code>+5</code>, <code>-5</code> o <code>5 </code> son inválidos.</li>
+			<li><strong>Control de desbordamiento <em>antes</em> de multiplicar.</strong> <code>result * 10 + digit ≤ INT_MAX</code> equivale a <code>result ≤ (INT_MAX - digit) / 10</code>, y comprobarlo de esta forma evita calcular un valor que ya se haya desbordado. Por eso <code>2147483647</code> se acepta y <code>2147483648</code> no.</li>
+			<li><code>return (*result &gt; 0)</code> rechaza el cero: tiene que haber al menos una fila.</li>
+		</ul>
+	</div>
+
+	<h3 id="validate-c">4.5 <code>srcs/validate.c</code>: ¿el mapa es correcto?</h3>
+	<div class="fn-block">
+		<h4><code>validate_map</code></h4>
+<pre><span class="file-tag">srcs/validate.c</span><code data-lang="c">int	validate_map(t_map *map)
+{
+	long	i;
+	long	col;
+
+	map-&gt;cols = get_line_length(map-&gt;grid, map-&gt;grid_len);
+	if (map-&gt;cols == 0)
+		return (0);
+	if (map-&gt;grid_len != (long)map-&gt;rows * (map-&gt;cols + 1))
+		return (0);
+	i = 0;
+	col = 0;
+	while (i &lt; map-&gt;grid_len)
+	{
+		if (!is_valid_cell(map, map-&gt;grid[i], col))
+			return (0);
+		col++;
+		if (col &gt; map-&gt;cols)
+			col = 0;
+		i++;
+	}
+	return (1);
+}</code></pre>
+		<ol>
+			<li><code>cols</code> es la longitud de la primera fila. Si es 0 (no hay mapa, o la primera fila está vacía), el mapa es inválido.</li>
+			<li><strong>Comprobación en O(1).</strong> Si todas las filas tienen <code>cols</code> caracteres y un <code>\n</code>, el mapa ocupa exactamente <code>rows × (cols + 1)</code> bytes. Esta única comparación rechaza al instante que falten o sobren filas, que falte el <code>\n</code> final o que haya basura al final.</li>
+			<li><strong>Una pasada lineal</strong> con un contador de columna <code>col</code> que vuelve a 0 al pasar de <code>cols</code>. Es como recorrer una matriz, pero con un solo índice y sin divisiones.</li>
+		</ol>
+		<p>Las dos comprobaciones juntas garantizan que hay exactamente <code>rows</code> filas de <code>cols</code> celdas válidas cada una.</p>
+	</div>
+	<div class="fn-block">
+		<h4><code>is_valid_cell</code> y <code>get_line_length</code><span class="badge">static</span></h4>
+<pre><span class="file-tag">srcs/validate.c</span><code data-lang="c">static int	is_valid_cell(t_map *map, char c, long col)
+{
+	if (col == map-&gt;cols)
+		return (c == '\n');
+	return (c == map-&gt;empty || c == map-&gt;obstacle);
+}</code></pre>
+<pre><span class="file-tag">srcs/validate.c</span><code data-lang="c">static long	get_line_length(char *str, long len)
+{
+	long	i;
+
+	i = 0;
+	while (i &lt; len &amp;&amp; str[i] != '\n')
+		i++;
+	return (i);
+}</code></pre>
+		<p>En la posición <code>col == cols</code> (fin de fila) solo se acepta <code>\n</code>. En el resto, solo vacío u obstáculo. El carácter de lleno en el mapa de entrada se considera error, porque el enunciado dice que el mapa solo contiene vacíos y obstáculos.</p>
+	</div>
+
+	<h3 id="solve-c">4.6 <code>srcs/solve.c</code>: el algoritmo</h3>
+	<div class="note"><strong>La idea.</strong> Para cada celda calculamos <code>dp</code>: el lado del cuadrado vacío más grande cuya esquina <strong>inferior derecha</strong> es esa celda. Si la celda es obstáculo vale 0. Si no:<br><code>dp = 1 + min(arriba, izquierda, diagonal)</code><br>El cuadrado solo puede crecer tanto como el más pequeño de sus tres vecinos le permita. Así cada celda se mira <strong>una sola vez</strong>: O(filas × columnas).</div>
+	<div class="fn-block">
+		<h4><code>solve</code></h4>
+<pre><span class="file-tag">srcs/solve.c</span><code data-lang="c">int	solve(t_map *map)
+{
+	int			*dp;
+	int			row;
+	t_square	best;
+
+	dp = create_row(map-&gt;cols + 1);
+	if (!dp)
+		return (0);
+	best.size = 0;
+	best.row = 0;
+	best.col = 0;
+	row = 0;
+	while (row &lt; map-&gt;rows)
+	{
+		process_row(map, dp, row, &amp;best);
+		row++;
+	}
+	free(dp);
+	fill_square(map, &amp;best);
+	return (1);
+}</code></pre>
+		<p>Crea la fila <code>dp</code> a cero, recorre todas las filas del mapa, libera la fila y pinta el mejor cuadrado. Devuelve 0 solo si falla el <code>malloc</code>.</p>
+	</div>
+	<div class="fn-block">
+		<h4><code>create_row</code><span class="badge">static</span></h4>
+<pre><span class="file-tag">srcs/solve.c</span><code data-lang="c">static int	*create_row(long size)
+{
+	int		*row;
+	long	i;
+
+	row = malloc(sizeof(int) * size);
+	if (!row)
+		return (NULL);
+	i = 0;
+	while (i &lt; size)
+	{
+		row[i] = 0;
+		i++;
+	}
+	return (row);
+}</code></pre>
+		<p>Reserva <code>cols + 1</code> enteros y los pone a 0, ya que <code>calloc</code> no está permitido. Es <strong>la única memoria extra</strong> del algoritmo: una sola fila, no una matriz. Para un mapa de 10 000 × 10 000 son unos 40 KB en lugar de 400 MB.</p>
+	</div>
+	<div class="fn-block">
+		<h4><code>process_row</code><span class="badge">el corazón</span></h4>
+<pre><span class="file-tag">srcs/solve.c</span><code data-lang="c">static void	process_row(t_map *map, int *dp, int row, t_square *best)
+{
+	long	col;
+	int		diag;
+	int		above;
+	char	*line;
+
+	line = map-&gt;grid + row * (map-&gt;cols + 1);
+	diag = 0;
+	col = 0;
+	while (col &lt; map-&gt;cols)
+	{
+		above = dp[col + 1];
+		if (line[col] == map-&gt;obstacle)
+			dp[col + 1] = 0;
+		else
+			dp[col + 1] = 1 + min_of_three(above, dp[col], diag);
+		if (dp[col + 1] &gt; best-&gt;size)
+		{
+			best-&gt;size = dp[col + 1];
+			best-&gt;row = row;
+			best-&gt;col = col;
+		}
+		diag = above;
+		col++;
+	}
+}</code></pre>
+		<p>¿Cómo se guarda una matriz entera en una sola fila? Antes de sobrescribir <code>dp[col + 1]</code>, ese hueco todavía contiene el valor de la <strong>fila anterior</strong>:</p>
+		<ul>
+			<li><code>above = dp[col + 1]</code> es el valor de <strong>arriba</strong>, todavía sin sobrescribir.</li>
+			<li><code>dp[col]</code> es el valor de la <strong>izquierda</strong>, que ya se ha actualizado en esta fila.</li>
+			<li><code>diag</code> es el valor de <strong>arriba a la izquierda</strong>: el <code>above</code> de la iteración anterior, guardado justo antes de pasar a la siguiente columna.</li>
+		</ul>
+		<p><strong>El desplazamiento de +1.</strong> La celda <code>col</code> se guarda en <code>dp[col + 1]</code>, de modo que <code>dp[0]</code> es siempre 0 y hace de «columna fantasma» a la izquierda del mapa. Como al principio todo vale 0, eso hace también de «fila fantasma» por encima. Así la primera fila y la primera columna no necesitan casos especiales.</p>
+		<p><strong>El desempate.</strong> Se recorre fila a fila y de izquierda a derecha, y el mejor solo se sustituye con <code>&gt;</code> estricto, nunca con <code>&gt;=</code>. Todos los cuadrados de tamaño máximo tienen el mismo lado, así que el primero cuya esquina inferior derecha encontramos es también el de esquina superior izquierda más arriba y más a la izquierda. Es justo lo que pide el enunciado.</p>
+		<p><code>line</code> apunta al inicio de la fila dentro de <code>grid</code> (<code>row × (cols + 1)</code>), lo que evita repetir esa multiplicación en cada celda.</p>
+	</div>
+	<div class="fn-block">
+		<h4><code>min_of_three</code><span class="badge">static</span></h4>
+<pre><span class="file-tag">srcs/solve.c</span><code data-lang="c">static int	min_of_three(int a, int b, int c)
+{
+	if (b &lt; a)
+		a = b;
+	if (c &lt; a)
+		a = c;
+	return (a);
+}</code></pre>
+		<p>El mínimo de tres valores sin operador ternario, que la Norma prohíbe. Se reutiliza el parámetro <code>a</code> para no declarar más variables.</p>
+	</div>
+	<div class="fn-block">
+		<h4><code>fill_square</code><span class="badge">static</span></h4>
+<pre><span class="file-tag">srcs/solve.c</span><code data-lang="c">static void	fill_square(t_map *map, t_square *best)
+{
+	int		row;
+	long	col;
+
+	row = best-&gt;row - best-&gt;size + 1;
+	while (row &lt;= best-&gt;row)
+	{
+		col = best-&gt;col - best-&gt;size + 1;
+		while (col &lt;= best-&gt;col)
+		{
+			map-&gt;grid[row * (map-&gt;cols + 1) + col] = map-&gt;full;
+			col++;
+		}
+		row++;
+	}
+}</code></pre>
+		<p>Con la esquina inferior derecha y el lado, la superior izquierda es <code>(row - size + 1, col - size + 1)</code>. Dos <code>while</code> anidados escriben el carácter de lleno directamente en el buffer. Si no hay ningún cuadrado posible (todo obstáculos, <code>size == 0</code>), el bucle no hace nada y el mapa se imprime tal cual.</p>
+	</div>
+</section>
+
+<section id="demo">
+	<h2><span class="num">5</span>El algoritmo en vivo</h2>
+	<p class="sub">Avanza celda a celda para ver cómo <code>process_row</code> rellena <code>dp</code> usando una sola fila de memoria.</p>
+	<div class="card">
+		<div class="controls">
+			<button class="primary" id="btnStep" type="button">Paso</button>
+			<button id="btnRow" type="button">Fila completa</button>
+			<button id="btnAll" type="button">Hasta el final</button>
+			<button id="btnReset" type="button">Reiniciar</button>
+			<button id="btnRandom" type="button">Mapa aleatorio</button>
+		</div>
+		<div class="demo">
+			<div>
+				<div class="grid" id="grid" aria-label="Mapa"></div>
+				<div class="caption" style="margin-top:10px">Memoria real: el array <code>dp</code> (<code>cols + 1</code> enteros)</div>
+				<div class="dp-row" id="dpRow"></div>
+			</div>
+			<div>
+				<div class="explain" id="explain" aria-live="polite"></div>
+				<div class="legend">
+					<span><i style="background:var(--accent-soft);border-color:var(--accent)"></i>vecinos usados</span>
+					<span><i style="background:var(--obstacle)"></i>obstáculo</span>
+					<span><i style="border:2px solid var(--fill)"></i>mejor hasta ahora</span>
+					<span><i style="background:var(--fill)"></i>cuadrado final</span>
+				</div>
+				<p class="caption">Los números atenuados ya no están en memoria: el programa solo conserva la fila actual. Se muestran aquí solo para que se vea el recorrido.</p>
+			</div>
+		</div>
+	</div>
+</section>
+
+<section id="errores">
+	<h2><span class="num">6</span>¿Cuándo se imprime <code>map error</code>?</h2>
+	<div class="table-wrap"><table>
+		<thead><tr><th>Caso</th><th>Ejemplo</th><th>Lo detecta</th></tr></thead>
+		<tbody>
+			<tr><td>El archivo no existe o no se puede leer</td><td class="mono">./bsq /nope</td><td class="mono">process_file · read_all</td></tr>
+			<tr><td>Archivo vacío o cabecera sin <code>\n</code></td><td class="mono">""</td><td class="mono">parse_header</td></tr>
+			<tr><td>Cabecera con menos de 4 caracteres</td><td class="mono">.ox</td><td class="mono">parse_header</td></tr>
+			<tr><td>Número inválido: cero, signo, tabulador o desbordamiento</td><td class="mono">0.ox · +1.ox · 2147483648.ox</td><td class="mono">parse_number</td></tr>
+			<tr><td>Caracteres repetidos o no imprimibles</td><td class="mono">2.oo · 1.o\x01</td><td class="mono">check_charset</td></tr>
+			<tr><td>Sin mapa o primera fila vacía</td><td class="mono">4.ox\n · 1.ox\n\n</td><td class="mono">validate_map</td></tr>
+			<tr><td>Faltan o sobran filas</td><td class="mono">2.ox con 1 fila</td><td class="mono">validate_map (O(1))</td></tr>
+			<tr><td>La última fila no termina en <code>\n</code></td><td class="mono">…\n...</td><td class="mono">validate_map (O(1))</td></tr>
+			<tr><td>Filas de distinta longitud</td><td class="mono">...\n..\n</td><td class="mono">is_valid_cell</td></tr>
+			<tr><td>Carácter desconocido o de lleno en el mapa</td><td class="mono">.a. · .x.</td><td class="mono">is_valid_cell</td></tr>
+			<tr><td>Saltos de línea de Windows (<code>\r\n</code>)</td><td class="mono">2.ox\r\n</td><td class="mono">check_charset / is_valid_cell</td></tr>
+			<tr><td>Falla <code>malloc</code></td><td>—</td><td class="mono">read_all · grow_buffer · solve</td></tr>
+		</tbody>
+	</table></div>
+	<p>Un mapa formado solo por obstáculos <strong>no</strong> es un error: es válido y se imprime sin cambios.</p>
+</section>
+
+<section id="pruebas">
+	<h2><span class="num">7</span>Pruebas y rendimiento</h2>
+	<p><code>tests/run_tests.sh</code> compila con <code>make</code> y ejecuta todo lo siguiente en Linux (WSL Ubuntu, <code>cc</code> 15.2):</p>
+	<div class="table-wrap"><table>
+		<thead><tr><th>Bloque</th><th>Qué comprueba</th><th>Resultado</th></tr></thead>
+		<tbody>
+			<tr><td>Makefile</td><td>Compila con <code>-Wall -Wextra -Werror</code> y no hace relink</td><td class="pass">2 / 2</td></tr>
+			<tr><td>Ejemplo del PDF</td><td>Salida idéntica byte a byte</td><td class="pass">1 / 1</td></tr>
+			<tr><td>Mapas válidos</td><td>10 casos límite (1 celda, una fila, una columna, espacio o dígitos como caracteres, empates…) comparados con <code>reference.py</code>, un solucionador de fuerza bruta independiente</td><td class="pass">10 / 10</td></tr>
+			<tr><td>Mapas inválidos</td><td>22 casos: <code>map error</code> en stderr y nada en stdout</td><td class="pass">22 / 22</td></tr>
+			<tr><td>Entrada estándar</td><td><code>./bsq &lt; mapa</code>, <code>cat mapa | ./bsq</code> y stdin vacío</td><td class="pass">3 / 3</td></tr>
+			<tr><td>Varios archivos</td><td>válido + inválido + válido, con líneas vacías entre medias</td><td class="pass">1 / 1</td></tr>
+			<tr><td>Aleatorios</td><td>300 mapas de tamaño, densidad y caracteres aleatorios, todos iguales a la referencia</td><td class="pass">1 / 1</td></tr>
+			<tr><td>Valgrind</td><td>Sin fugas ni accesos inválidos (mapa válido, inválido, stdin y varios archivos)</td><td class="pass">4 / 4</td></tr>
+			<tr><td>norminette</td><td>Los 6 archivos <code>.c</code> y <code>.h</code></td><td class="pass">OK</td></tr>
+		</tbody>
+	</table></div>
+	<div class="table-wrap"><table>
+		<thead><tr><th>Mapa (generador del PDF)</th><th>Tamaño</th><th>Tiempo</th><th>Memoria máx.</th></tr></thead>
+		<tbody>
+			<tr><td>1 000 × 1 000</td><td class="num">1 MB</td><td class="num">0,01 s</td><td class="num">2,6 MB</td></tr>
+			<tr><td>5 000 × 5 000</td><td class="num">25 MB</td><td class="num">0,20 s</td><td class="num">34 MB</td></tr>
+			<tr><td>10 000 × 10 000</td><td class="num">100 MB</td><td class="num">0,85 s</td><td class="num">133 MB</td></tr>
+		</tbody>
+	</table></div>
+	<p>La memoria es casi exactamente el tamaño del archivo (el buffer) más una fila de enteros. El tiempo crece de forma lineal con el número de celdas.</p>
+</section>
+
+<section id="uso">
+	<h2><span class="num">8</span>Cómo usarlo</h2>
+<pre class="term"><span class="prompt">$ </span><span class="cmd">cd ex00 &amp;&amp; make</span>
+<span class="prompt">$ </span><span class="cmd">./bsq ../tests/maps/valid/example_subject</span>          <span class="tk-com"># un archivo</span>
+<span class="prompt">$ </span><span class="cmd">./bsq mapa1 mapa2 mapa3</span>                            <span class="tk-com"># varios archivos</span>
+<span class="prompt">$ </span><span class="cmd">./bsq &lt; mapa</span>                                       <span class="tk-com"># stdin con redirección</span>
+<span class="prompt">$ </span><span class="cmd">cat mapa | ./bsq</span>                                   <span class="tk-com"># stdin con tubería</span>
+<span class="prompt">$ </span><span class="cmd">perl ../tests/gen_map.pl 40 20 2 &gt; mapa &amp;&amp; ./bsq mapa</span> <span class="tk-com"># mapa aleatorio</span>
+<span class="prompt">$ </span><span class="cmd">bash ../tests/run_tests.sh</span>                         <span class="tk-com"># todas las pruebas</span>
+<span class="prompt">$ </span><span class="cmd">make fclean</span>                                        <span class="tk-com"># limpiar</span></pre>
+	<div class="note warn">La cabecera de 42 de cada archivo lleva el login de ejemplo <code>marvin</code>. Antes de entregar, regenérala con tu login (en vim, <code>:Stdheader</code> o <kbd>F1</kbd>).</div>
+	<footer>BSQ · C Piscine · Página generada a partir del código fuente del repositorio.</footer>
+</section>
+</main>
+</div>
+
+<script>
+(function () {
+	"use strict";
+
+	/* ---------- Theme toggle ---------- */
+	var root = document.documentElement;
+	var themeBtn = document.getElementById("themeBtn");
+	try {
+		var saved = localStorage.getItem("bsq-theme");
+		if (saved) root.setAttribute("data-theme", saved);
+	} catch (e) {}
+	themeBtn.addEventListener("click", function () {
+		var dark = root.getAttribute("data-theme") === "dark" ||
+			(!root.getAttribute("data-theme") && matchMedia("(prefers-color-scheme: dark)").matches);
+		var next = dark ? "light" : "dark";
+		root.setAttribute("data-theme", next);
+		try { localStorage.setItem("bsq-theme", next); } catch (e) {}
+	});
+
+	/* ---------- Minimal C / Makefile highlighter ---------- */
+	function esc(s) {
+		return s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+	}
+	var C_RE = /(\/\*[\s\S]*?\*\/)|(^[ \t]*#.*$)|("(?:\\.|[^"\\])*"|'(?:\\.|[^'\\])*')|\b(\d+)\b|\b(if|else|while|return|static|typedef|struct|sizeof)\b|\b(int|long|char|void|t_map|t_square|NULL)\b|\b([A-Za-z_]\w*)(?=\()/gm;
+	var MK_RE = /(#.*$)|(\$\([^)]*\)|\$[<@])|(^[A-Za-z_.%][\w./%]*(?=\s*:))|(^[A-Z_]+(?=\s*=))/gm;
+	function highlight(code, lang) {
+		var re = lang === "make" ? MK_RE : C_RE;
+		var classes = lang === "make"
+			? ["tk-com", "tk-type", "tk-fn", "tk-key"]
+			: ["tk-com", "tk-pre", "tk-str", "tk-num", "tk-key", "tk-type", "tk-fn"];
+		var out = "";
+		var last = 0;
+		var m;
+		re.lastIndex = 0;
+		while ((m = re.exec(code)) !== null) {
+			if (m[0] === "") { re.lastIndex++; continue; }
+			out += esc(code.slice(last, m.index));
+			for (var g = 1; g < m.length; g++) {
+				if (m[g] !== undefined) {
+					out += '<span class="' + classes[g - 1] + '">' + esc(m[0]) + "</span>";
+					break;
+				}
+			}
+			last = m.index + m[0].length;
+		}
+		return out + esc(code.slice(last));
+	}
+	document.querySelectorAll("pre code[data-lang]").forEach(function (el) {
+		el.innerHTML = highlight(el.textContent, el.getAttribute("data-lang"));
+	});
+
+	/* ---------- Buffer illustration ---------- */
+	(function () {
+		var rows = ["..o.", "....", ".o.."];
+		var box = document.getElementById("bufferDemo");
+		var idx = 0;
+		rows.forEach(function (row, r) {
+			(row + "\n").split("").forEach(function (ch, c) {
+				var d = document.createElement("div");
+				d.className = "b" + (ch === "\n" ? " nl" : "") + (r === 2 && c === 1 ? " hl" : "");
+				d.innerHTML = (ch === "\n" ? "\\n" : esc(ch)) + "<small>" + idx + "</small>";
+				box.appendChild(d);
+				idx++;
+			});
+		});
+	})();
+
+	/* ---------- Active section in TOC ---------- */
+	var links = Array.prototype.slice.call(document.querySelectorAll("nav.toc a"));
+	var targets = links.map(function (a) { return document.querySelector(a.getAttribute("href")); });
+	if ("IntersectionObserver" in window) {
+		var obs = new IntersectionObserver(function (entries) {
+			entries.forEach(function (e) {
+				if (e.isIntersecting) {
+					links.forEach(function (a) { a.classList.remove("active"); });
+					var i = targets.indexOf(e.target);
+					if (i >= 0) links[i].classList.add("active");
+				}
+			});
+		}, { rootMargin: "0px 0px -75% 0px" });
+		targets.forEach(function (t) { if (t) obs.observe(t); });
+	}
+
+	/* ---------- DP demo (mirrors process_row exactly) ---------- */
+	var DEFAULT_MAP = [
+		"...o.....",
+		".........",
+		"o........",
+		"......o..",
+		".........",
+		"..o......",
+		"........o"
+	];
+	var gridEl = document.getElementById("grid");
+	var dpEl = document.getElementById("dpRow");
+	var explainEl = document.getElementById("explain");
+	var btnStep = document.getElementById("btnStep");
+	var btnRow = document.getElementById("btnRow");
+	var btnAll = document.getElementById("btnAll");
+	var state;
+
+	function init(map) {
+		state = {
+			map: map,
+			rows: map.length,
+			cols: map[0].length,
+			dp: new Array(map[0].length + 1).fill(0),
+			values: map.map(function (r) { return new Array(r.length).fill(null); }),
+			k: 0,
+			diag: 0,
+			best: { size: 0, row: 0, col: 0 },
+			last: null,
+			done: false
+		};
+		gridEl.style.gridTemplateColumns = "repeat(" + state.cols + ", auto)";
+		render();
+		explainEl.textContent = "Mapa de " + state.rows + " × " + state.cols +
+			". dp empieza a 0 (es la «fila fantasma» de encima).\nPulsa «Paso».";
+	}
+
+	function step() {
+		var s = state;
+		if (s.done) return;
+		var row = Math.floor(s.k / s.cols);
+		var col = s.k % s.cols;
+		if (col === 0) s.diag = 0;
+		var above = s.dp[col + 1];
+		var left = s.dp[col];
+		var diag = s.diag;
+		var isObst = s.map[row][col] === "o";
+		var v = isObst ? 0 : 1 + Math.min(above, left, diag);
+		s.dp[col + 1] = v;
+		s.values[row][col] = v;
+		var improved = v > s.best.size;
+		if (improved) s.best = { size: v, row: row, col: col };
+		s.diag = above;
+		s.last = { row: row, col: col, above: above, left: left, diag: diag, v: v, isObst: isObst, improved: improved };
+		s.k++;
+		if (s.k === s.rows * s.cols) s.done = true;
+	}
+
+	function describe() {
+		var s = state;
+		var l = s.last;
+		if (!l) return;
+		var txt = "fila " + l.row + ", col " + l.col + ": ";
+		if (l.isObst) {
+			txt += "'o' es obstáculo → dp[" + (l.col + 1) + "] = 0";
+		} else {
+			txt += "'.' → 1 + min(arriba " + l.above + ", izquierda " + l.left +
+				", diagonal " + l.diag + ") = " + l.v;
+		}
+		txt += l.improved
+			? "\n★ nuevo mejor: lado " + l.v + " (esquina inf. dcha. en " + l.row + "," + l.col + ")"
+			: "\nmejor hasta ahora: lado " + s.best.size + (l.v === s.best.size && l.v > 0 ? "  (empate: no se cambia, > estricto)" : "");
+		if (s.done) {
+			var b = s.best;
+			txt += "\n\nFIN → fill_square pinta el cuadrado de lado " + b.size;
+			if (b.size > 0) txt += " desde (" + (b.row - b.size + 1) + "," + (b.col - b.size + 1) + ") hasta (" + b.row + "," + b.col + ")";
+		}
+		explainEl.textContent = txt;
+	}
+
+	function render() {
+		var s = state;
+		var l = s.last;
+		var curRow = Math.floor((s.k - 1) / s.cols);
+		gridEl.innerHTML = "";
+		for (var r = 0; r < s.rows; r++) {
+			for (var c = 0; c < s.cols; c++) {
+				var cell = document.createElement("div");
+				var cls = "cell";
+				var ch = s.map[r][c];
+				if (ch === "o") cls += " obst";
+				var v = s.values[r][c];
+				if (v !== null && r < curRow - 1 && !s.done) cls += " old";
+				if (l && !s.done) {
+					if (r === l.row && c === l.col) cls += " cur";
+					if (!l.isObst && ((r === l.row - 1 && c === l.col) || (r === l.row && c === l.col - 1) || (r === l.row - 1 && c === l.col - 1))) cls += " nb";
+				}
+				var b = s.best;
+				var inBest = b.size > 0 && r > b.row - b.size && r <= b.row && c > b.col - b.size && c <= b.col;
+				if (inBest) cls += s.done ? " filled" : " best";
+				cell.className = cls;
+				var shown = s.done && inBest ? "x" : ch;
+				cell.innerHTML = '<span class="ch">' + esc(shown) + '</span><span class="v">' + (v === null ? "" : v) + "</span>";
+				gridEl.appendChild(cell);
+			}
+		}
+		dpEl.innerHTML = "";
+		for (var i = 0; i <= s.cols; i++) {
+			var slot = document.createElement("div");
+			slot.className = "slot" + (i === 0 ? " pad" : "") + (l && !s.done && i === l.col + 1 ? " w" : "");
+			slot.innerHTML = s.dp[i] + "<small>dp[" + i + "]</small>";
+			dpEl.appendChild(slot);
+		}
+		btnStep.disabled = btnRow.disabled = btnAll.disabled = s.done;
+	}
+
+	btnStep.addEventListener("click", function () { step(); render(); describe(); });
+	btnRow.addEventListener("click", function () {
+		step();
+		while (!state.done && state.k % state.cols !== 0) step();
+		render(); describe();
+	});
+	btnAll.addEventListener("click", function () {
+		while (!state.done) step();
+		render(); describe();
+	});
+	document.getElementById("btnReset").addEventListener("click", function () { init(state.map); });
+	document.getElementById("btnRandom").addEventListener("click", function () {
+		var rows = 5 + Math.floor(Math.random() * 3);
+		var cols = 7 + Math.floor(Math.random() * 3);
+		var map = [];
+		for (var r = 0; r < rows; r++) {
+			var line = "";
+			for (var c = 0; c < cols; c++) line += Math.random() < 0.14 ? "o" : ".";
+			map.push(line);
+		}
+		init(map);
+	});
+	init(DEFAULT_MAP);
+})();
+</script>
+</body>
+</html>

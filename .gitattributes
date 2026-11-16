@@ -1,0 +1,5 @@
+# Keep LF line endings for sources, Makefile and scripts on every platform
+* text=auto eol=lf
+
+# Test maps must stay byte-for-byte identical (one of them uses CRLF on purpose)
+tests/maps/** -text

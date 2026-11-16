@@ -1,0 +1,6 @@
+# Build artifacts
+*.o
+ex00/bsq
+
+# Subject PDF (42 material, kept local)
+*.pdf
