@@ -14,14 +14,12 @@ NAME		= bsq
 
 CC			= cc
 CFLAGS		= -Wall -Wextra -Werror
-INCLUDES	= -I includes
+INCLUDES	= -I .
 
-HEADER		= includes/bsq.h
-SRCS		= srcs/main.c \
-			  srcs/read_input.c \
-			  srcs/parse.c \
-			  srcs/validate.c \
-			  srcs/solve.c
+HEADER		= header.h
+SRCS		= main.c \
+			  map.c
+
 OBJS		= $(SRCS:.c=.o)
 
 all: $(NAME)
